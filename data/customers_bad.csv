@@ -1,1 +1,17 @@
-
+CUSTOMER_ID,CUSTOMER_NAME,EMAIL,PHONE,STATE,CREATED_DATE,SOURCE_SYSTEM
+C001,Aarav Sharma,aarav.sharma@example.com,9876543210,MH,2025-11-02,CRM
+C002,Priya Nair,priya.nair@example.com,9812345678,KA,2025-11-04,CRM
+C003,Rohan Mehta,rohan.mehta_example.com,9800011122,DL,2025-11-05,CRM
+C004,Isha Verma,,9765432109,,2025-11-06,LEGACY
+C005,Karan Singh,karan.singh@example.com,98765,TN,2025-11-07,CRM
+C006,Neha Gupta,neha.gupta@@example.com,9911223344,GJ,2025-11-08,LEGACY
+C007,Vikram Rao,vikram.rao@example.com,9922334455,MH,2025-11-09,CRM
+C007,Vikram Rao,vikram.rao@example.com,9922334455,MH,2025-11-09,CRM
+C008,Ananya Das,ananya.das@example.com,9933445566,WB,2025-11-10,CRM
+C009,Rahul Kapoor,rahul.kapoor@example,9944556677,,2025-11-11,LEGACY
+C010,Meera Iyer,meera.iyer@example.com,9955667788,KL,2025-11-12,CRM
+C011,Arjun Reddy,,notaphone,AP,2025-11-13,LEGACY
+C012,Sneha Joshi,sneha.joshi@example.com,9966778899,MP,2025-11-14,CRM
+,Deepak Kumar,deepak.kumar@example.com,9977889900,UP,2025-11-15,CRM
+C014,Pooja Malhotra,pooja.malhotra@example.com,9988990011,,2025-11-16,LEGACY
+C015,Sanjay Bhat,sanjay.bhat@example.com,9999001122,HR,2025-11-17,CRM

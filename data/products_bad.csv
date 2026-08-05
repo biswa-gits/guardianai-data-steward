@@ -1,0 +1,16 @@
+PRODUCT_ID,PRODUCT_NAME,CATEGORY,PRICE,ACTIVE_FLAG
+P501,Wireless Mouse,Electronics,799.00,Y
+P502,Mechanical Keyboard,Electronics,2499.00,Y
+P503,USB-C Cable,Accessories,299.00,Y
+P504,Laptop Stand,,1299.00,Y
+P505,Webcam HD,Electronics,-1999.00,Y
+P506,Notebook A5,Stationery,149.00,N
+P507,Desk Lamp,Home,899.00,MAYBE
+P507,Desk Lamp,Home,899.00,N
+P508,Office Chair,Furniture,-5999.00,Y
+P509,Water Bottle,,349.00,Y
+P510,Monitor 24in,Electronics,10999.00,Y
+P511,HDMI Adapter,Accessories,499.00,Q
+P512,Pen Set,Stationery,199.00,N
+P513,Backpack,,1799.00,Y
+P514,Standing Desk,Furniture,24999.00,Y
