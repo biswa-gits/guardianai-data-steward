@@ -57,3 +57,5 @@ SELECT
     (SELECT COUNT(*)      FROM DQ_ISSUES WHERE STATUS='OPEN'
                           AND SEVERITY='CRITICAL')                            AS critical_issues,
     (SELECT BUSINESS_RISK FROM DQ_HEALTH_SCORE WHERE TABLE_NAME='OVERALL')     AS overall_business_risk;
+
+SELECT SNOWFLAKE.CORTEX.COMPLETE('mistral-large2','Say OK');
