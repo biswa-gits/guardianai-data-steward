@@ -7,3 +7,13 @@ entities:
       - pyproject.toml
       - guardianai_app.py
       - .streamlit/config.toml
+    identifier:
+      database: GUARDIANAI_DB
+      schema: CORE
+      name: STREAMLIT_APP
+    title: GuardianAI_streamlit_app
+    query_warehouse: GUARDIANAI_WH
+    compute_pool: SYSTEM_COMPUTE_POOL_CPU
+    run_mode: SpcsOnly
+    execute_as: OWNER
+    idle_auto_shutdown_time_seconds: 86400

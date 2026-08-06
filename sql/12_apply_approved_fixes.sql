@@ -79,7 +79,58 @@ $$;
 
 CALL RUN_APPROVED_FIXES();
 
+
+
+-- STEP A: human approval for the new-table plan rows.
+-- Auto-approve low-risk items; approve the rest for the full story.
+UPDATE DQ_REMEDIATION_PLAN SET APPROVAL_STATUS='APPROVED'
+WHERE TABLE_NAME IN ('PAYMENTS','INVENTORY') AND REQUIRES_APPROVAL=FALSE;
+
+UPDATE DQ_REMEDIATION_PLAN SET APPROVAL_STATUS='APPROVED'
+WHERE TABLE_NAME IN ('PAYMENTS','INVENTORY') AND REQUIRES_APPROVAL=TRUE;
+-- (For a partial-approval demo, filter the line above, e.g. leave
+--  INVALID_WAREHOUSE / a LOW item as PENDING.)
+
+-- STEP B: execute approved new-table fixes in the correct method order.
+CREATE OR REPLACE PROCEDURE RUN_APPROVED_FIXES_NEW()
+RETURNS STRING
+LANGUAGE SQL
+AS
+$$
+DECLARE
+    c1 CURSOR FOR
+        SELECT PLAN_ID, FIX_SQL
+        FROM DQ_REMEDIATION_PLAN
+        WHERE TABLE_NAME IN ('PAYMENTS','INVENTORY')
+          AND APPROVAL_STATUS = 'APPROVED'
+          AND EXECUTED = FALSE
+        ORDER BY
+            CASE FIX_METHOD WHEN 'DEDUP' THEN 1
+                            WHEN 'QUARANTINE' THEN 2
+                            ELSE 3 END;
+    n INTEGER DEFAULT 0;
+BEGIN
+    FOR rec IN c1 DO
+        EXECUTE IMMEDIATE rec.FIX_SQL;   -- handles single & INSERT;DELETE pairs
+        UPDATE DQ_REMEDIATION_PLAN SET EXECUTED = TRUE WHERE PLAN_ID = rec.PLAN_ID;
+        n := n + 1;
+    END FOR;
+    RETURN 'Executed ' || n || ' approved new-table remediation step(s).';
+END;
+$$;
+
+CALL RUN_APPROVED_FIXES_NEW();
+
+
 -- Quick look at what moved to quarantine (nothing was deleted permanently)
 SELECT 'CUSTOMERS_QUARANTINE' AS tbl, COUNT(*) AS rows1 FROM CUSTOMERS_QUARANTINE
 UNION ALL SELECT 'ORDERS_QUARANTINE', COUNT(*) FROM ORDERS_QUARANTINE
 UNION ALL SELECT 'PRODUCTS_QUARANTINE', COUNT(*) FROM PRODUCTS_QUARANTINE;
+
+-- What moved to quarantine (nothing deleted permanently)
+SELECT 'PAYMENTS_QUARANTINE'  AS tbl, COUNT(*) AS rows1 FROM PAYMENTS_QUARANTINE
+UNION ALL SELECT 'INVENTORY_QUARANTINE', COUNT(*) FROM INVENTORY_QUARANTINE;
+
+-- Remaining row counts after remediation
+SELECT 'PAYMENTS' AS tbl, COUNT(*) AS rows1 FROM PAYMENTS
+UNION ALL SELECT 'INVENTORY', COUNT(*) FROM INVENTORY;
