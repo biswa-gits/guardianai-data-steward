@@ -1,8 +1,6 @@
 -- =====================================================================
--- GuardianAI | File 21b: ORCHESTRATION PROCEDURE BODIES
--- Real, runnable bodies for the procedures the DAG (file 21) calls.
--- Run this BEFORE file 21 so the tasks resolve their CALLs.
--- These wrap the already-verified logic from 04/17, 05c, 07-09.
+-- GuardianAI | File 14: ORCHESTRATION PROCEDURE BODIES
+-- Real, runnable bodies for the procedures the DAG calls.
 -- =====================================================================
 
 USE WAREHOUSE GUARDIANAI_WH;

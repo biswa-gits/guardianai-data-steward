@@ -1,5 +1,5 @@
 -- =====================================================================
--- GuardianAI | File 23: ORCHESTRATION CONTROLS & MONITORING
+-- GuardianAI | File 17: ORCHESTRATION CONTROLS & MONITORING
 -- Handy commands to start, stop, observe, and manually trigger the
 -- automated pipeline. Keep this as your "operator console".
 -- =====================================================================

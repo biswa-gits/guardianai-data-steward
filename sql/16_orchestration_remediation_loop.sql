@@ -1,5 +1,5 @@
 -- =====================================================================
--- GuardianAI | File 22: REMEDIATION LOOP (Loop B - human action -> re-clean)
+-- GuardianAI | File 16: REMEDIATION LOOP (Loop B - human action -> re-clean)
 -- Event-driven, but HUMAN-GATED. When a user approves fixes in the
 -- Streamlit app (sets APPROVAL_STATUS='APPROVED'), a stream detects the
 -- change and a triggered task:
@@ -11,7 +11,6 @@
 --
 -- This preserves Responsible AI: the loop NEVER fires on its own. It only
 -- reacts to an explicit human approval.
--- Run AFTER: 21b (procedure bodies) and the base remediation procs exist.
 -- =====================================================================
 
 USE WAREHOUSE GUARDIANAI_WH;

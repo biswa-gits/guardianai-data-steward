@@ -1,5 +1,5 @@
 -- =====================================================================
--- GuardianAI | File 20: ORCHESTRATION SETUP (event-driven pipeline)
+-- GuardianAI | File 13: ORCHESTRATION SETUP (event-driven pipeline)
 -- Sets up the plumbing for automatic ingest + change detection:
 --   * A stage with a DIRECTORY TABLE (so Snowflake "sees" dropped files)
 --   * Auto-ingest COPY via Snowpipe (or a triggered task fallback)
@@ -8,9 +8,6 @@
 --
 -- NOTE ON TRIAL ACCOUNTS:
 --   * Streams + Tasks work on standard/trial accounts.
---   * Snowpipe AUTO_INGEST needs cloud-storage event notifications (S3/GCS/
---     Azure). On a pure internal-stage trial, use the "triggered task"
---     ingest pattern in file 21 instead (it polls the directory table).
 -- =====================================================================
 
 USE WAREHOUSE GUARDIANAI_WH;

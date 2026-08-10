@@ -1,5 +1,5 @@
 -- =====================================================================
--- GuardianAI | File 15: GOVERNANCE RECORDER AGENT (Day 4)
+-- GuardianAI | File 12: GOVERNANCE RECORDER AGENT (Day 4)
 -- Maintains a single immutable-style audit trail of everything the
 -- system did: detection, diagnosis, recommendation, approval, execution,
 -- validation. This powers Page 5 (Governance Log) and is the backbone

@@ -1,5 +1,5 @@
 -- =====================================================================
--- GuardianAI | File 21: DETECTION TASK GRAPH (Loop A - ingest -> detect)
+-- GuardianAI | File 15: DETECTION TASK GRAPH (Loop A - ingest -> detect)
 -- Builds the automated pipeline that runs when new rows arrive:
 --   T0  INGEST (triggered-task fallback for internal stages)
 --   T1  DETECT      (Observer Agent, all 5 tables)          <- root
@@ -9,8 +9,6 @@
 -- Tasks are chained into a DAG. The root uses a WHEN clause so the graph
 -- only runs when at least one stream has new data (cost-efficient).
 --
--- Wrap the detection/scoring/analysis SQL you already have into procedures
--- so tasks can call them in one line. (Bodies mirror files 04/17, 05c, 07-09.)
 -- =====================================================================
 
 USE WAREHOUSE GUARDIANAI_WH;

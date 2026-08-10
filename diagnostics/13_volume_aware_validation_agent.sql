@@ -1,21 +1,32 @@
 -- =====================================================================
--- GuardianAI | File 14c: VALIDATION AGENT for ALL 5 TABLES (volume-aware)
--- Re-runs detection for base 3 (file 04 logic) + new 2 (file 17 logic),
--- rescores with the 5-table volume-aware model (file 05c), snapshots AFTER,
--- and shows BEFORE vs AFTER. Use INSTEAD of 14 / 14b in the 5-table setup.
--- Run AFTER base remediation (13) and new-table remediation (19).
+-- GuardianAI | Validation Agent (all 5 tables, volume-aware) - SELF-CONTAINED
+-- =====================================================================
+-- Canonical, standalone validation with ZERO procedure dependencies.
+-- Re-runs ALL detection inline, recomputes the volume-aware score inline,
+-- snapshots AFTER, and shows the BEFORE -> AFTER jump.
+--
+-- Self-contained by design: safe to run in a fresh worksheet even if the
+-- orchestration procedures were never created. Detection + scoring logic
+-- here MUST stay identical to:
+--   * detection : 04 (base) + 04a/File17 (new tables)
+--   * scoring   : 08 volume-aware model (PRESENCE + VOLUME_MULT * pct)
+-- If you ever change those, update this file too.
+--
+-- Replaces the two old files:
+--   13_validation_agent              (flat scoring, 3 tables)   -> DELETE
+--   13_volume_aware_validation_agent (3 tables only)            -> DELETE
 -- =====================================================================
 
 USE WAREHOUSE GUARDIANAI_WH;
 USE DATABASE  GUARDIANAI_DB;
 USE SCHEMA    CORE;
 
--- ---------------------------------------------------------------------
--- STEP 1: Re-detect everything into DQ_ISSUES.
--- ---------------------------------------------------------------------
+-- =====================================================================
+-- STEP 1: Re-detect all issues into DQ_ISSUES (inline, no procedures).
+-- =====================================================================
 TRUNCATE TABLE DQ_ISSUES;
 
--- ===== CUSTOMERS =====
+-- ---------------- CUSTOMERS ----------------
 INSERT INTO DQ_ISSUES (TABLE_NAME,COLUMN_NAME,ISSUE_TYPE,SEVERITY,PENALTY,AFFECTED_ROWS)
 SELECT 'CUSTOMERS','EMAIL','MISSING_EMAIL','HIGH',10,COUNT(*) FROM CUSTOMERS WHERE EMAIL IS NULL HAVING COUNT(*)>0;
 INSERT INTO DQ_ISSUES (TABLE_NAME,COLUMN_NAME,ISSUE_TYPE,SEVERITY,PENALTY,AFFECTED_ROWS)
@@ -32,7 +43,7 @@ INSERT INTO DQ_ISSUES (TABLE_NAME,COLUMN_NAME,ISSUE_TYPE,SEVERITY,PENALTY,AFFECT
 SELECT 'CUSTOMERS','PHONE','INVALID_PHONE','MEDIUM',7,COUNT(*) FROM CUSTOMERS
 WHERE PHONE IS NOT NULL AND NOT REGEXP_LIKE(PHONE,'^[0-9]{10}$') HAVING COUNT(*)>0;
 
--- ===== ORDERS =====
+-- ---------------- ORDERS ----------------
 INSERT INTO DQ_ISSUES (TABLE_NAME,COLUMN_NAME,ISSUE_TYPE,SEVERITY,PENALTY,AFFECTED_ROWS)
 SELECT 'ORDERS','ORDER_DATE','FUTURE_ORDER_DATE','MEDIUM',7,COUNT(*) FROM ORDERS WHERE TRY_TO_DATE(ORDER_DATE)>CURRENT_DATE() HAVING COUNT(*)>0;
 INSERT INTO DQ_ISSUES (TABLE_NAME,COLUMN_NAME,ISSUE_TYPE,SEVERITY,PENALTY,AFFECTED_ROWS)
@@ -46,7 +57,7 @@ INSERT INTO DQ_ISSUES (TABLE_NAME,COLUMN_NAME,ISSUE_TYPE,SEVERITY,PENALTY,AFFECT
 SELECT 'ORDERS','ORDER_ID','DUPLICATE_ORDER_ID','CRITICAL',20,SUM(cnt) FROM
  (SELECT ORDER_ID,COUNT(*) cnt FROM ORDERS GROUP BY ORDER_ID HAVING COUNT(*)>1) d HAVING SUM(cnt)>0;
 
--- ===== PRODUCTS =====
+-- ---------------- PRODUCTS ----------------
 INSERT INTO DQ_ISSUES (TABLE_NAME,COLUMN_NAME,ISSUE_TYPE,SEVERITY,PENALTY,AFFECTED_ROWS)
 SELECT 'PRODUCTS','PRICE','NEGATIVE_PRICE','MEDIUM',7,COUNT(*) FROM PRODUCTS WHERE TRY_TO_NUMBER(PRICE)<0 HAVING COUNT(*)>0;
 INSERT INTO DQ_ISSUES (TABLE_NAME,COLUMN_NAME,ISSUE_TYPE,SEVERITY,PENALTY,AFFECTED_ROWS)
@@ -58,7 +69,7 @@ INSERT INTO DQ_ISSUES (TABLE_NAME,COLUMN_NAME,ISSUE_TYPE,SEVERITY,PENALTY,AFFECT
 SELECT 'PRODUCTS','ACTIVE_FLAG','INVALID_ACTIVE_FLAG','MEDIUM',7,COUNT(*) FROM PRODUCTS
 WHERE ACTIVE_FLAG NOT IN ('Y','N') OR ACTIVE_FLAG IS NULL HAVING COUNT(*)>0;
 
--- ===== PAYMENTS (within + cross-table) =====
+-- ---------------- PAYMENTS (within + cross-table) ----------------
 CREATE OR REPLACE TEMPORARY TABLE _ORD_AMT AS
 SELECT ORDER_ID, MIN(TRY_TO_NUMBER(ORDER_AMOUNT)) AS ORDER_AMOUNT
 FROM ORDERS WHERE ORDER_ID IS NOT NULL GROUP BY ORDER_ID;
@@ -84,7 +95,7 @@ INSERT INTO DQ_ISSUES (TABLE_NAME,COLUMN_NAME,ISSUE_TYPE,SEVERITY,PENALTY,AFFECT
 SELECT 'PAYMENTS','PAYMENT_METHOD','INVALID_PAYMENT_METHOD','MEDIUM',7,COUNT(*) FROM PAYMENTS
 WHERE PAYMENT_METHOD IS NULL OR PAYMENT_METHOD NOT IN ('CARD','UPI','NETBANKING','WALLET','COD') HAVING COUNT(*)>0;
 
--- ===== INVENTORY (within + cross-table) =====
+-- ---------------- INVENTORY (within + cross-table) ----------------
 INSERT INTO DQ_ISSUES (TABLE_NAME,COLUMN_NAME,ISSUE_TYPE,SEVERITY,PENALTY,AFFECTED_ROWS)
 SELECT 'INVENTORY','INVENTORY_ID','DUPLICATE_INVENTORY_ID','CRITICAL',20,SUM(cnt) FROM
  (SELECT INVENTORY_ID,COUNT(*) cnt FROM INVENTORY GROUP BY INVENTORY_ID HAVING COUNT(*)>1) d HAVING SUM(cnt)>0;
@@ -99,12 +110,13 @@ INSERT INTO DQ_ISSUES (TABLE_NAME,COLUMN_NAME,ISSUE_TYPE,SEVERITY,PENALTY,AFFECT
 SELECT 'INVENTORY','WAREHOUSE','INVALID_WAREHOUSE','LOW',3,COUNT(*) FROM INVENTORY
 WHERE WAREHOUSE IS NULL OR WAREHOUSE NOT IN ('WH-MUM','WH-DEL','WH-BLR','WH-KOL','WH-CHN','WH-HYD') HAVING COUNT(*)>0;
 
--- ---------------------------------------------------------------------
--- STEP 2: Recompute volume-aware scores for all 5 tables (file 05c model).
--- ---------------------------------------------------------------------
+-- =====================================================================
+-- STEP 2: Recompute volume-aware health scores (same model as file 08).
+--   penalty = PRESENCE(sev) + VOLUME_MULT(sev) * pct_rows_affected
+-- =====================================================================
 TRUNCATE TABLE DQ_HEALTH_SCORE;
 
-INSERT INTO DQ_HEALTH_SCORE (TABLE_NAME,TOTAL_PENALTY,HEALTH_SCORE,BUSINESS_RISK)
+INSERT INTO DQ_HEALTH_SCORE (TABLE_NAME, TOTAL_PENALTY, HEALTH_SCORE, BUSINESS_RISK)
 WITH table_stats AS (
     SELECT 'CUSTOMERS' AS TABLE_NAME, COUNT(*) AS TOTAL_ROWS FROM CUSTOMERS
     UNION ALL SELECT 'ORDERS',    COUNT(*) FROM ORDERS
@@ -114,47 +126,58 @@ WITH table_stats AS (
 ),
 scored AS (
     SELECT i.TABLE_NAME,
-        CASE i.SEVERITY WHEN 'CRITICAL' THEN 8 WHEN 'HIGH' THEN 4 WHEN 'MEDIUM' THEN 2 ELSE 1 END
-        + CASE i.SEVERITY WHEN 'CRITICAL' THEN 1.5 WHEN 'HIGH' THEN 1.0 WHEN 'MEDIUM' THEN 0.7 ELSE 0.3 END
-          * (100.0*i.AFFECTED_ROWS/NULLIF(s.TOTAL_ROWS,0)) AS ISSUE_PENALTY
-    FROM DQ_ISSUES i JOIN table_stats s ON s.TABLE_NAME=i.TABLE_NAME
-    WHERE i.STATUS='OPEN'
+        CASE i.SEVERITY WHEN 'CRITICAL' THEN 8 WHEN 'HIGH' THEN 4
+                        WHEN 'MEDIUM'   THEN 2 ELSE 1 END
+        + CASE i.SEVERITY WHEN 'CRITICAL' THEN 1.5 WHEN 'HIGH' THEN 1.0
+                          WHEN 'MEDIUM'   THEN 0.7 ELSE 0.3 END
+          * (100.0 * i.AFFECTED_ROWS / NULLIF(s.TOTAL_ROWS, 0)) AS ISSUE_PENALTY
+    FROM DQ_ISSUES i
+    JOIN table_stats s ON s.TABLE_NAME = i.TABLE_NAME
+    WHERE i.STATUS = 'OPEN'
 )
 SELECT TABLE_NAME, ROUND(SUM(ISSUE_PENALTY),1),
-    GREATEST(0,ROUND(100-SUM(ISSUE_PENALTY))),
-    CASE WHEN GREATEST(0,100-SUM(ISSUE_PENALTY))>=90 THEN 'LOW'
-         WHEN GREATEST(0,100-SUM(ISSUE_PENALTY))>=75 THEN 'MEDIUM'
-         WHEN GREATEST(0,100-SUM(ISSUE_PENALTY))>=50 THEN 'HIGH' ELSE 'CRITICAL' END
+    GREATEST(0, ROUND(100 - SUM(ISSUE_PENALTY))),
+    CASE WHEN GREATEST(0,100-SUM(ISSUE_PENALTY)) >= 90 THEN 'LOW'
+         WHEN GREATEST(0,100-SUM(ISSUE_PENALTY)) >= 75 THEN 'MEDIUM'
+         WHEN GREATEST(0,100-SUM(ISSUE_PENALTY)) >= 50 THEN 'HIGH' ELSE 'CRITICAL' END
 FROM scored GROUP BY TABLE_NAME;
 
-INSERT INTO DQ_HEALTH_SCORE (TABLE_NAME,TOTAL_PENALTY,HEALTH_SCORE,BUSINESS_RISK)
-SELECT t.TABLE_NAME,0,100,'LOW'
+-- Any of the 5 tables with zero open issues -> 100
+INSERT INTO DQ_HEALTH_SCORE (TABLE_NAME, TOTAL_PENALTY, HEALTH_SCORE, BUSINESS_RISK)
+SELECT t.TABLE_NAME, 0, 100, 'LOW'
 FROM (SELECT 'CUSTOMERS' TABLE_NAME UNION ALL SELECT 'ORDERS' UNION ALL SELECT 'PRODUCTS'
       UNION ALL SELECT 'PAYMENTS' UNION ALL SELECT 'INVENTORY') t
 WHERE t.TABLE_NAME NOT IN (SELECT TABLE_NAME FROM DQ_HEALTH_SCORE);
 
-INSERT INTO DQ_HEALTH_SCORE (TABLE_NAME,TOTAL_PENALTY,HEALTH_SCORE,BUSINESS_RISK)
+-- Overall trust score = average of the 5 table scores
+INSERT INTO DQ_HEALTH_SCORE (TABLE_NAME, TOTAL_PENALTY, HEALTH_SCORE, BUSINESS_RISK)
 SELECT 'OVERALL', ROUND(SUM(TOTAL_PENALTY),1), ROUND(AVG(HEALTH_SCORE)),
-    CASE WHEN ROUND(AVG(HEALTH_SCORE))>=90 THEN 'LOW'
-         WHEN ROUND(AVG(HEALTH_SCORE))>=75 THEN 'MEDIUM'
-         WHEN ROUND(AVG(HEALTH_SCORE))>=50 THEN 'HIGH' ELSE 'CRITICAL' END
-FROM DQ_HEALTH_SCORE WHERE TABLE_NAME<>'OVERALL';
+    CASE WHEN ROUND(AVG(HEALTH_SCORE)) >= 90 THEN 'LOW'
+         WHEN ROUND(AVG(HEALTH_SCORE)) >= 75 THEN 'MEDIUM'
+         WHEN ROUND(AVG(HEALTH_SCORE)) >= 50 THEN 'HIGH' ELSE 'CRITICAL' END
+FROM DQ_HEALTH_SCORE WHERE TABLE_NAME <> 'OVERALL';
 
--- ---------------------------------------------------------------------
--- STEP 3: AFTER snapshot + BEFORE/AFTER comparison (all 5 tables).
--- ---------------------------------------------------------------------
-DELETE FROM DQ_HEALTH_HISTORY WHERE RUN_LABEL='AFTER_REMEDIATION';
-INSERT INTO DQ_HEALTH_HISTORY (RUN_LABEL,TABLE_NAME,HEALTH_SCORE,BUSINESS_RISK)
-SELECT 'AFTER_REMEDIATION',TABLE_NAME,HEALTH_SCORE,BUSINESS_RISK FROM DQ_HEALTH_SCORE;
+-- =====================================================================
+-- STEP 3: Snapshot AFTER scores.
+--   (BEFORE is captured by the remediation cycle before fixes run.)
+-- =====================================================================
+DELETE FROM DQ_HEALTH_HISTORY WHERE RUN_LABEL = 'AFTER_REMEDIATION';
+INSERT INTO DQ_HEALTH_HISTORY (RUN_LABEL, TABLE_NAME, HEALTH_SCORE, BUSINESS_RISK)
+SELECT 'AFTER_REMEDIATION', TABLE_NAME, HEALTH_SCORE, BUSINESS_RISK
+FROM DQ_HEALTH_SCORE;
 
+-- =====================================================================
+-- STEP 4: THE MONEY SHOT - BEFORE vs AFTER, side by side, all 5 tables.
+-- =====================================================================
 SELECT
-    COALESCE(b.TABLE_NAME,a.TABLE_NAME) AS table_name,
-    b.HEALTH_SCORE AS before_score,
-    a.HEALTH_SCORE AS after_score,
-    a.HEALTH_SCORE - b.HEALTH_SCORE AS improvement,
-    b.BUSINESS_RISK AS before_risk,
-    a.BUSINESS_RISK AS after_risk
-FROM      (SELECT * FROM DQ_HEALTH_HISTORY WHERE RUN_LABEL='BEFORE_REMEDIATION') b
-FULL JOIN (SELECT * FROM DQ_HEALTH_HISTORY WHERE RUN_LABEL='AFTER_REMEDIATION')  a
-       ON b.TABLE_NAME=a.TABLE_NAME
-ORDER BY CASE WHEN COALESCE(b.TABLE_NAME,a.TABLE_NAME)='OVERALL' THEN 1 ELSE 0 END, table_name;
+    COALESCE(b.TABLE_NAME, a.TABLE_NAME) AS table_name,
+    b.HEALTH_SCORE                       AS before_score,
+    a.HEALTH_SCORE                       AS after_score,
+    a.HEALTH_SCORE - b.HEALTH_SCORE      AS improvement,
+    b.BUSINESS_RISK                      AS before_risk,
+    a.BUSINESS_RISK                      AS after_risk
+FROM      (SELECT * FROM DQ_HEALTH_HISTORY WHERE RUN_LABEL = 'BEFORE_REMEDIATION') b
+FULL JOIN (SELECT * FROM DQ_HEALTH_HISTORY WHERE RUN_LABEL = 'AFTER_REMEDIATION')  a
+       ON b.TABLE_NAME = a.TABLE_NAME
+ORDER BY CASE WHEN COALESCE(b.TABLE_NAME, a.TABLE_NAME) = 'OVERALL' THEN 1 ELSE 0 END,
+         table_name;
