@@ -219,6 +219,13 @@ elif page.startswith("🛠️"):
                 st.caption(f"Approval: {r['APPROVAL_STATUS']} • "
                            f"Requires human review: {bool(r['REQUIRES_APPROVAL'])}")
 
+    if st.button("✅ Approve all & run remediation now"):
+        session.sql("UPDATE DQ_REMEDIATION_PLAN SET APPROVAL_STATUS='APPROVED' "
+                "WHERE APPROVAL_STATUS='PENDING'").collect()
+        session.sql("CALL SP_REMEDIATION_CYCLE()").collect()
+        st.success("Fixes applied and data re-validated.")
+        st.cache_data.clear()
+        st.rerun()
 
 # =====================================================================
 # PAGE 5 - GOVERNANCE LOG

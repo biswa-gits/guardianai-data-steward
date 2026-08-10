@@ -1,0 +1,34 @@
+-- =====================================================================
+-- GuardianAI | File 25: DIAGNOSTIC - why isn't the score reaching 100?
+-- Run these in a Snowsight worksheet (server-side, bypasses the app cache)
+-- to see the TRUE current state and pinpoint what's stuck.
+-- =====================================================================
+
+USE WAREHOUSE GUARDIANAI_WH;
+USE DATABASE  GUARDIANAI_DB;
+USE SCHEMA    CORE;
+
+-- 1) The real scores right now (this is ground truth, not the app)
+SELECT * FROM DQ_HEALTH_SCORE
+ORDER BY CASE WHEN TABLE_NAME='OVERALL' THEN 1 ELSE 0 END, TABLE_NAME;
+
+-- 2) Exactly which issues remain open (expect these to be CUSTOMERS)
+SELECT TABLE_NAME, ISSUE_TYPE, SEVERITY, AFFECTED_ROWS
+FROM DQ_ISSUES
+WHERE STATUS='OPEN'
+ORDER BY TABLE_NAME,
+         CASE SEVERITY WHEN 'CRITICAL' THEN 1 WHEN 'HIGH' THEN 2 WHEN 'MEDIUM' THEN 3 ELSE 4 END;
+
+-- 3) Plan state: are the CUSTOMERS fixes APPROVED but stuck EXECUTED=TRUE?
+--    (If EXECUTED=TRUE, the executor skips them -> nothing re-runs.)
+SELECT TABLE_NAME, ISSUE_TYPE, FIX_METHOD, APPROVAL_STATUS, EXECUTED
+FROM DQ_REMEDIATION_PLAN
+ORDER BY TABLE_NAME, FIX_METHOD;
+
+-- 4) Did the quarantine DELETE actually happen? Compare a bad-row count.
+--    If quarantine has rows but CUSTOMERS still has the same bad rows,
+--    the DELETE half of the INSERT;DELETE fix never ran.
+SELECT 'CUSTOMERS still-missing-id' AS check1, COUNT(*) AS rows1
+FROM CUSTOMERS WHERE CUSTOMER_ID IS NULL
+UNION ALL
+SELECT 'CUSTOMERS_QUARANTINE total', COUNT(*) FROM CUSTOMERS_QUARANTINE;
