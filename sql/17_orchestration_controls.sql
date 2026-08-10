@@ -11,29 +11,31 @@ USE SCHEMA    CORE;
 -- ---------------------------------------------------------------------
 -- START everything (resume children first, roots last)
 -- ---------------------------------------------------------------------
--- ALTER TASK TSK_04_GOVERN  RESUME;
--- ALTER TASK TSK_03_ANALYZE RESUME;
--- ALTER TASK TSK_02_SCORE   RESUME;
--- ALTER TASK TSK_01_DETECT  RESUME;
--- ALTER TASK TSK_00_INGEST  RESUME;
--- ALTER TASK TSK_REMEDIATE_ON_APPROVAL RESUME;
+ALTER TASK TSK_04_GOVERN  RESUME;
+ALTER TASK TSK_03_ANALYZE RESUME;
+ALTER TASK TSK_02b_REBUILD_PLAN RESUME;
+ALTER TASK TSK_02_SCORE   RESUME;
+ALTER TASK TSK_01_DETECT  RESUME;
+ALTER TASK TSK_00_INGEST  RESUME;
+ALTER TASK TSK_REMEDIATE_ON_APPROVAL RESUME;
 
 -- ---------------------------------------------------------------------
 -- STOP everything (suspend roots first, then children)
 -- ---------------------------------------------------------------------
--- ALTER TASK TSK_00_INGEST  SUSPEND;
--- ALTER TASK TSK_01_DETECT  SUSPEND;
--- ALTER TASK TSK_02_SCORE   SUSPEND;
--- ALTER TASK TSK_03_ANALYZE SUSPEND;
--- ALTER TASK TSK_04_GOVERN  SUSPEND;
--- ALTER TASK TSK_REMEDIATE_ON_APPROVAL SUSPEND;
+ALTER TASK TSK_00_INGEST  SUSPEND;
+ALTER TASK TSK_01_DETECT  SUSPEND;
+ALTER TASK TSK_02_SCORE   SUSPEND;
+ALTER TASK TSK_02b_REBUILD_PLAN SUSPEND;
+ALTER TASK TSK_03_ANALYZE SUSPEND;
+ALTER TASK TSK_04_GOVERN  SUSPEND;
+ALTER TASK TSK_REMEDIATE_ON_APPROVAL SUSPEND;
 
 -- ---------------------------------------------------------------------
 -- MANUAL TRIGGERS (run the pipeline on demand, without waiting)
 -- ---------------------------------------------------------------------
--- EXECUTE TASK TSK_00_INGEST;                 -- kick the whole detection DAG
--- CALL SP_DETECT_ALL();  CALL SP_SCORE_ALL(); -- or run stages directly
--- CALL SP_REMEDIATION_CYCLE();                -- apply approved fixes + validate now
+EXECUTE TASK TSK_00_INGEST;                 -- kick the whole detection DAG
+CALL SP_DETECT_ALL();  CALL SP_SCORE_ALL(); -- or run stages directly
+CALL SP_REMEDIATION_CYCLE();                -- apply approved fixes + validate now
 
 -- ---------------------------------------------------------------------
 -- MONITORING
