@@ -35,7 +35,7 @@ own work; the pipeline even **rebuilds its own fix plan** when new issues appear
 rather than a linear script.
 
 ## 4. Architecture
-![GuardianAI Architecture](architecture.png)
+![GuardianAI Architecture](docs/architecture.png)
 
 - **Ingest:** Snowsight UI upload (or a landing stage with Snowpipe); **Streams**
   capture new rows (change-data-capture).
